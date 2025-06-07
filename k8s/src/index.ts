@@ -18,5 +18,4 @@ app.use('/api/k8s/project', projectRouter)
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async() => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(await getClusterInfo("https://31.207.76.43:6443"))
 });
