@@ -8,7 +8,12 @@
     "start": "node dist/index.js",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit",
-    "prestart": "npm run build"
+    "prestart": "npm run build",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
@@ -17,18 +22,23 @@
   "dependencies": {
     "@kubernetes/client-node": "^1.2.0",
     "@prisma/client": "^6.8.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "node-ssh": "^13.2.1",
     "ssh2-promise": "^1.0.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.2",
     "@types/fs-extra": "^11.0.4",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.15.21",
     "dotenv": "^16.5.0",
     "fs-extra": "^11.3.0",
     "nodemon": "^3.1.10",
-    "prisma": "^6.8.2",
+    "prisma": "^6.9.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
