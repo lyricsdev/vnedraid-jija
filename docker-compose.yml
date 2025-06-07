@@ -9,24 +9,25 @@ services:
     environment:
       DATABASE_URL: mysql://root:roottedexample@31.207.74.78:3306/user-service
     volumes:
-      - .:/app
+      - ./auth-service:/app
       - /app/node_modules
     command: npm run dev
     networks:
       - app-network
   main:
     build:
-      context: ./auth-service
+      context: ./k8s
     ports:
       - "3001:3000"
     environment:
       DATABASE_URL: mysql://root:roottedexample@31.207.74.78:3306/main
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ./k8s:/k8s
+      - /k8s/node_modules
     command: npm run dev
     networks:
       - app-network
+
   nginx:
     image: nginx:1.24.0  # Используем вашу версию
     ports:

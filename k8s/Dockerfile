@@ -1,17 +1,13 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /k8s
 
-# Копируем зависимости и схему
 COPY package*.json ./
 COPY prisma ./prisma
-
 RUN npm install
 RUN npx prisma generate
 
-# Копируем остальной код
 COPY . .
 
 EXPOSE 3001
-
 CMD ["npm", "run", "dev"]
