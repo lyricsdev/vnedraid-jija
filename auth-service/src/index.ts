@@ -10,7 +10,6 @@ const router2 = require('./routers/roles.router')
 const userRouter = require('./routers/user.router')
 
 
-
 app.use(cors({
   origin: 'http://localhost:3000', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -21,8 +20,10 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json());
 app.use('/api/auth',router);
-app.use('/api/roles',router2);
-app.use('/api/users',userRouter);
+
+const middlewareAuth = require('./middleware/auth.middleware')
+app.use('/api/roles',middlewareAuth, router2);
+app.use('/api/users',middlewareAuth, userRouter);
 
 
 
