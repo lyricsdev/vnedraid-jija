@@ -8,7 +8,11 @@ export const getProjectForUser = async (userId: string) => {
     include: {
       projects: {
         include: {
-          project: true,
+          project: {
+            include: {
+              clusters: true
+            },
+          },
         },
       },
     },
