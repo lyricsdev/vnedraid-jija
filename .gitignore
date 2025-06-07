@@ -1,0 +1,6 @@
+main/.env
+main/node_modules
+auth-service/.env
+auth-service/node_modules
+k8s/.env
+k8s/node_modules

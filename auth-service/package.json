@@ -1,0 +1,35 @@
+{
+  "name": "k8s",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit",
+    "prestart": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@kubernetes/client-node": "^1.2.0",
+    "@prisma/client": "^6.8.2",
+    "express": "^5.1.0",
+    "node-ssh": "^13.2.1",
+    "ssh2-promise": "^1.0.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.15.21",
+    "dotenv": "^16.5.0",
+    "fs-extra": "^11.3.0",
+    "nodemon": "^3.1.10",
+    "prisma": "^6.8.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
