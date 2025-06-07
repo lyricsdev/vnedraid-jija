@@ -6,5 +6,5 @@ export type AuthDataset = {
     id: number,
     name: string,
     createdAt: string, 
-    roles: object[] 
+    roles?: object[] 
 }

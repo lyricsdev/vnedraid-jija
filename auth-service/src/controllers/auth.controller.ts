@@ -13,57 +13,29 @@ class AuthController{
     
         const {name, password} = req.body;
         const result =  await prismaService.$executeRaw`
-        INSERT INTO User (name, password, createdAt)
-        VALUES (
-        ${name},
-        ${await passwordUtils.encryptPassword(password)},
-        NOW()
-        )
+            INSERT INTO User (name, password, createdAt)
+            VALUES (
+            ${name},
+            ${await passwordUtils.encryptPassword(password)},
+            NOW()
+            )
         `;
     
         const [user] = await prismaService.$queryRaw<{id: number}[]>`
             SELECT id FROM User WHERE name = ${name} LIMIT 1
         `;
         
-        const [role] = await prismaService.$queryRaw<{id: string}[]>`
-            SELECT id FROM Role WHERE name = 'user' LIMIT 1
-        `;
-        
-        await prismaService.$executeRaw`
-            INSERT INTO UserRole (userId, roleId)
-            VALUES (${user.id}, ${role.id})
-        `;
-
-
-
         const users = await prismaService.$queryRaw`
         SELECT 
             *
         FROM User where name = ${name}
         `;
 
-       
-
-        const rolesUsers = await prismaService.$queryRaw`
-        SELECT 
-            roleId
-        FROM UserRole where userId = ${users[0].id}        `;
-
-        const rolesIds = rolesUsers.map((role: any)=>{
-            return role.roleId
-        })
-
-        const roles = await prismaService.$queryRaw`
-            SELECT 
-                *
-            FROM Role where id in (${rolesIds.join(',')}) `;
-
             
         const returnObject: AuthDataset = {
             id: users[0].id,
             name: users[0].name,
-            createdAt: users[0].createdAt,
-            roles
+            createdAt: users[0].createdAt
         } 
         const res2 = utilsJwt.generateToken(returnObject)
 
@@ -83,20 +55,10 @@ class AuthController{
             SELECT * FROM User WHERE name = ${name} LIMIT 1
         `;
 
-        const rolesUsers = await prismaService.$queryRaw`
-        SELECT 
-            roleId
-        FROM UserRole where userId = ${user[0].id}        `;
-
-        const rolesIds = rolesUsers.map((role: any)=>{
-            return role.roleId
+        if(!user[0].password) return res.status(404).send({
+            code: 404,
+            "message":"Неправильно, переделывай"
         })
-
-        const roles = await prismaService.$queryRaw`
-            SELECT 
-                *
-            FROM Role where id in (${rolesIds.join(',')}) `;
-
         const varify = await passwordUtils.verifyPassword(password, user[0].password)
 
         if(!varify) return res.status(402).send({
@@ -107,8 +69,7 @@ class AuthController{
         const returnObject: AuthDataset = {
             id: user[0].id,
             name: user[0].name,
-            createdAt: user[0].createdAt,
-            roles
+            createdAt: user[0].createdAt
         } 
         const res2 = utilsJwt.generateToken(returnObject)
 
