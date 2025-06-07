@@ -2,10 +2,10 @@ import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
 import fs from "fs-extra";
-import { ClusterType } from "../generated/prisma";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { getClusterInfo } from "../service/cluster/k8s";
+import { ClusterType } from "../generated/prisma";
 
 const router = express.Router();
 function getClusterTypeFromString(value: string): ClusterType | null {
