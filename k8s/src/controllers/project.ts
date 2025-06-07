@@ -4,7 +4,7 @@ import { NodeSSH } from "node-ssh";
 import fs from "fs-extra";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
-import { createProject, getProjectForUser } from "../service/projects/project.service";
+import { createProject, getClusterProjects, getProjectForUser } from "../service/projects/project.service";
 
 const router = express.Router();
 
@@ -38,7 +38,7 @@ router.post("/list", async (req: Request, res: Response) => {
 });
 router.post("/clusterlist", async (req: Request, res: Response) => {
     const { projectId} = req.body;
-    const data = await getProjectForUser(projectId)
+    const data = await getClusterProjects(projectId)
     res.json(data)
     return;
 });
