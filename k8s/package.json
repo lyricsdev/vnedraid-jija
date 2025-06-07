@@ -17,11 +17,13 @@
   "dependencies": {
     "@kubernetes/client-node": "^1.2.0",
     "@prisma/client": "^6.8.2",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "node-ssh": "^13.2.1",
     "ssh2-promise": "^1.0.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.15.21",
