@@ -588,3 +588,4 @@ export async function deleteNamespace(server: string, namespace: string): Promis
     return false;
   }
 }
+

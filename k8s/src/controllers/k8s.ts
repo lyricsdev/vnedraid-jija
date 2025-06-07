@@ -2,7 +2,7 @@ import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
 import { ensureSSHKeyPair } from "../service/sshInitService";
-import { createNamespaceCluster, deleteNamespace, deployHelloWorld, deployPrometheus, getClusterInfo, getClustetById, getNamespaces } from "../service/cluster/k8s";
+import { createK8sClient, createNamespaceCluster, deleteNamespace, deployHelloWorld, deployPrometheus, getClusterInfo, getClustetById, getNamespaces } from "../service/cluster/k8s";
 enum ClusterType {
   Master = "master",
   Minion = "minion",
@@ -227,4 +227,68 @@ router.delete("/:id/namespaces/:namespace", async (req: Request, res: Response) 
     return 
   }
 });
+router.get("/:id/deployments/:namespace", async (req: Request, res: Response) => {
+  const { id, namespace } = req.params;
+
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+  if (!cluster) {
+     res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
+     return 
+  }
+
+  try {
+    const { coreV1Api,appsV1Api } = await createK8sClient(`https://${cluster.ip}:6443`);
+    const depList = await appsV1Api.listNamespacedDeployment({ namespace });
+
+const deployments = await Promise.all((depList.items || []).map(async (dep) => {
+  const namespace = dep.metadata?.namespace || '';
+  const selectorLabels = dep.spec?.selector?.matchLabels || {};
+
+  // Формируем селектор для запроса подов, например: "app=grafana,pod-template-hash=123"
+  const labelSelector = Object.entries(selectorLabels)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(',');
+
+  // Получаем поды по селектору
+  const podsResponse = await coreV1Api.listNamespacedPod({namespace, labelSelector});
+  const pods = podsResponse.items;
+
+  // Собираем уникальные лейблы из подов
+  const podLabelsSet = new Set<string>();
+  pods.forEach(pod => {
+    const labels = pod.metadata?.labels || {};
+    Object.entries(labels).forEach(([k, v]) => {
+      podLabelsSet.add(`${k}=${v}`);
+    });
+  });
+
+  // Формируем объект с лейблами для ответа (преобразуем Set обратно в объект)
+  const podLabelsObj: Record<string, string> = {};
+  podLabelsSet.forEach(label => {
+    const [key, value] = label.split('=');
+    podLabelsObj[key] = value;
+  });
+
+  return {
+    metadata: {
+      name: dep.metadata?.name,
+      namespace,
+      resourceVersion: dep.metadata?.resourceVersion,
+      uid: dep.metadata?.uid,
+      labels: selectorLabels,  // лейблы из селектора деплоймента
+      podLabels: podLabelsObj, // реальные лейблы подов
+    }
+  };
+}));
+
+
+    res.json({ success: true, deployments });
+    return 
+  } catch (error) {
+    console.error('Error listing deployments:', error);
+    res.status(500).json({ success: false, message: "Ошибка при получении деплойментов" });
+    return 
+  }
+});
+
 export default router;

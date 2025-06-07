@@ -37,7 +37,7 @@ router.post("/list", async (req: Request, res: Response) => {
     return;
 });
 router.post("/clusterlist", async (req: Request, res: Response) => {
-    const { projectId} = req.body;
+    const {projectId} = req.body;
     const data = await getClusterProjects(projectId)
     res.json(data)
     return;
