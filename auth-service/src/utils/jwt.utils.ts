@@ -2,7 +2,7 @@ import jwt, { SignOptions }  from 'jsonwebtoken';
 import { config } from 'dotenv';
 config(); // Загружаем переменные окружения из .env
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here';
+const JWT_SECRET = process.env.JWT_SECRET || 'jwt';
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 /**
