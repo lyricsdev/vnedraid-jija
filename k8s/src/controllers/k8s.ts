@@ -5,7 +5,10 @@ import fs from "fs-extra";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { getClusterInfo } from "../service/cluster/k8s";
-import { ClusterType } from "../generated/prisma";
+enum ClusterType {
+  master,
+  minion
+}
 
 const router = express.Router();
 function getClusterTypeFromString(value: string): ClusterType | null {

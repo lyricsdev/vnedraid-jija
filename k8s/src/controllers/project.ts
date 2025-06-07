@@ -2,7 +2,6 @@ import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
 import fs from "fs-extra";
-import { ClusterType } from "../generated/prisma";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { createProject, getProjectForUser } from "../service/projects/project.service";
