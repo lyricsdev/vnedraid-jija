@@ -74,7 +74,7 @@ router.post("/new/:type", async (req: Request, res: Response) => {
           },
           ip,
           username: user,
-              type: getClusterTypeFromString(type) ?? "master"
+          type: getClusterTypeFromString(type) ?? "master"
           }
       })
       res.json({ 

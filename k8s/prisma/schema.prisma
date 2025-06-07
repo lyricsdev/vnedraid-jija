@@ -45,7 +45,7 @@ model Cluster {
   projectId  Int
   ip         String
   username   String
-  type       ClusterType
+  type       String
   sshKey     SshKey?
   createdAt  DateTime        @default(now())
   joinCommand  String?      
@@ -60,9 +60,4 @@ model SshKey {
   privateKey String
   publicKey  String
   createdAt  DateTime        @default(now())
-}
-
-enum ClusterType {
-  master
-  minion
 }
