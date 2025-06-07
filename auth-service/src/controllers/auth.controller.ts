@@ -31,6 +31,10 @@ class AuthController{
         FROM User where name = ${name}
         `;
 
+        if(!users[0]) return res.status(404).send({
+            code: 404,
+            message: "Ошибка авторизации"
+        })
             
         const returnObject: AuthDataset = {
             id: users[0].id,
@@ -65,11 +69,32 @@ class AuthController{
             code: 402,
             message: "Указанные данные пользователя неверны"
         })
+
+        if(!user[0]) return res.status(404).send({
+            code: 404,
+            message: "Ошибка авторизации"
+        })
+            
+        const userPerm = await prismaService.$queryRaw`
+        SELECT 
+            *
+        FROM UserPermission where userId = ${user[0].id}
+        `;
+        let roles = [];
+        for(let i = 0; i < userPerm.length; i++){
+            roles.push(...await prismaService.$queryRaw`
+                SELECT 
+                    *
+                FROM Permission where id = ${userPerm[i].permissionId}
+            `)
+        }
+
         
         const returnObject: AuthDataset = {
             id: user[0].id,
             name: user[0].name,
-            createdAt: user[0].createdAt
+            createdAt: user[0].createdAt,
+            roles
         } 
         const res2 = utilsJwt.generateToken(returnObject)
 

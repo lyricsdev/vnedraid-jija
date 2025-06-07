@@ -11,44 +11,39 @@ class RolesController{
 
     async reassignRoles(req: Request<{}, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>, number>){
         const token = req.cookies.token;
+        console.log(req.cookies);
+        const permissionIds: string[] = req.body.permissionIds;
+        const userId = req.body.userId;
 
-        const {roleId, permissionIds} = req.body;
-        if(!token) return res.status(401).send({
-            code: 401,
-            message: "Пользователь не авторизован"
-        })
-        const role = await prismaService.$executeRaw`
-            DELTE FROM "RolePermission" WHERE id = ${roleId}`
+      
+        await prismaService.$executeRaw`
+            DELETE FROM UserPermission WHERE userId = ${userId}`
+        
+        console.log(permissionIds)
+        console.log(userId)
 
         for(let i = 0; i < permissionIds.length; i++){
             await prismaService.$executeRaw`
-            INSERT INTO RolePermission (id, name)
-            VALUES (UUID(), ${name})`
-
+            INSERT INTO UserPermission (id, userId, permissionId)
+            VALUES (UUID(),${userId}, ${permissionIds[i]})`
         }
 
-        console.log(await prismaService.$queryRaw`SELect * from RolePermission`)
-
-
-        return res.status(200)
+        return res.status(200).send({"ok":"ok"})
     }
 
     async removeRoles(req: Request<{}, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>, number>){
        const token = req.cookies.token;
-        if(!token) return res.status(401).send({
-            code: 401,
-            message: "Пользователь не авторизован"
-        })
+      
+        const userId = req.body.userId;
+        await prismaService.$executeRaw`
+            DELETE FROM UserPermission WHERE userId = ${userId}`
 
-        return res.status(200).send()
+        return res.status(200).send({"ok":"ok"})
     }
 
     async postPermission(req: Request<{}, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>, number>){
         const token = req.cookies.token;
-        if(!token) return res.status(401).send({
-            code: 401,
-            message: "Пользователь не авторизован"
-        })
+      
         
         const name = req.body.name 
 
@@ -65,10 +60,7 @@ class RolesController{
 
     async getPermission(req: Request<{}, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>, number>){
         const token = req.cookies.token;
-        if(!token) return res.status(401).send({
-            code: 401,
-            message: "Пользователь не авторизован"
-        })
+      
 
         const permissions = await prismaService.$queryRaw`
         SELECT * FROM Permission
