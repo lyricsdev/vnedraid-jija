@@ -1,7 +1,6 @@
 import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
-import fs from "fs-extra";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { getClusterInfo } from "../service/cluster/k8s";
@@ -14,11 +13,12 @@ const router = express.Router();
 function getClusterTypeFromString(value: string): ClusterType | null {
   const mapping: Record<string, ClusterType> = {
     master: ClusterType.master,
-    minion: ClusterType.minion,
+    minion: ClusterType.Minion,
   };
 
   return mapping[value.toLowerCase()] ?? null;
 }
+
 router.post("/new/:type", async (req: Request, res: Response) => {
   const { ip, user, password,projectId } = req.body;
   const { type } = req.params;
@@ -74,8 +74,8 @@ router.post("/new/:type", async (req: Request, res: Response) => {
           },
           ip,
           username: user,
-          type: getClusterTypeFromString(type) ?? ClusterType.master,
-        }
+            type: getClusterTypeFromString(type) ?? ClusterType.master,        
+          }
       })
       res.json({ 
         status: "ok", 
