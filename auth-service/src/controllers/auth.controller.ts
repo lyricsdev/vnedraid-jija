@@ -13,12 +13,12 @@ class AuthController{
     
         const {name, password} = req.body;
         const result =  await prismaService.$executeRaw`
-        INSERT INTO User (name, password, createdAt)
-        VALUES (
-        ${name},
-        ${await passwordUtils.encryptPassword(password)},
-        NOW()
-        )
+            INSERT INTO User (name, password, createdAt)
+            VALUES (
+            ${name},
+            ${await passwordUtils.encryptPassword(password)},
+            NOW()
+            )
         `;
     
         const [user] = await prismaService.$queryRaw<{id: number}[]>`
@@ -55,6 +55,10 @@ class AuthController{
             SELECT * FROM User WHERE name = ${name} LIMIT 1
         `;
 
+        if(!user[0].password) return res.status(404).send({
+            code: 404,
+            "message":"Неправильно, переделывай"
+        })
         const varify = await passwordUtils.verifyPassword(password, user[0].password)
 
         if(!varify) return res.status(402).send({
