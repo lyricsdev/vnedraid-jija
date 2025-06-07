@@ -7,6 +7,8 @@ const cors = require('cors')
 const app = express();
 const router = require('./routers/auth.router')
 const router2 = require('./routers/roles.router')
+const userRouter = require('./routers/user.router')
+
 
 
 app.use(cors({
@@ -20,6 +22,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.use('/api/auth',router);
 app.use('/api/roles',router2);
+app.use('/api/users',userRouter);
+
 
 
 const PORT = process.env.PORT || 3000;

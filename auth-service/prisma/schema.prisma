@@ -24,9 +24,10 @@ model Permission {
 }
 
 model UserPermission {
-  user    User   @relation(fields: [userId], references: [id])
-  userId  Int
-  permission Permission @relation(fields: [permissionId], references: [id])
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  permission  Permission @relation(fields: [permissionId], references: [id])
   permissionId String
-  @@id([userId, permissionId])
+  createdAt   DateTime @default(now())
 }
