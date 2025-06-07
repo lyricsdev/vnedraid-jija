@@ -1,6 +1,6 @@
 const routerRoles = require('express').Router()
 
-const controller = require('../controllers/roles.controller')
+const controller = require('../../controllers/roles.controller')
 
 routerRoles.post('/reassign', controller.reassignRoles)
 routerRoles.post('/remove', controller.removeRoles)

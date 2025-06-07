@@ -5,9 +5,9 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 const cors = require('cors')
 const app = express();
-const router = require('./routers/auth.router')
-const router2 = require('./routers/roles.router')
-const userRouter = require('./routers/user.router')
+const router = require('./routers/auth/auth.router')
+const router2 = require('./routers/roles/roles.router')
+const userRouter = require('./routers/user/user.router')
 
 
 app.use(cors({
