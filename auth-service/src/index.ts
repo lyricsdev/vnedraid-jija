@@ -10,11 +10,12 @@ const router2 = require('./routers/roles.router')
 
 app.use(cookieParser());
 app.use(express.json());
-app.use('/api',router);
-app.use('/api',router2);
+app.use('/api/auth',router);
+app.use('/api/roles',router2);
 
-app.use(cors())
-
+app.use(cors({
+  origin: "*"
+}))
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
