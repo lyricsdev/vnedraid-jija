@@ -36,4 +36,10 @@ router.post("/list", async (req: Request, res: Response) => {
     res.json(data)
     return;
 });
+router.post("/clusterlist", async (req: Request, res: Response) => {
+    const { projectId} = req.body;
+    const data = await getProjectForUser(projectId)
+    res.json(data)
+    return;
+});
 export default router;

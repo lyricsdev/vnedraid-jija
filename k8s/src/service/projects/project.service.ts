@@ -8,11 +8,7 @@ export const getProjectForUser = async (userId: string) => {
     include: {
       projects: {
         include: {
-          project: {
-            include: {
-              clusters: true
-            },
-          },
+          project: true,
         },
       },
     },
@@ -30,7 +26,25 @@ export const getProjectForUser = async (userId: string) => {
     code: 200,
   };
 };
+export const getClusterProjects = async (projectId: number) => {
+  const data = await prisma.cluster.findMany({
+    where: {
+      projectId,
+    }
+  });
 
+  if (!data) {
+    return {
+      code: 404,
+      message: "кластеров нет",
+    };
+  }
+
+  return {
+    collection: data,
+    code: 200,
+  };
+};
 interface IcreateProject {
     name: string,
     userId: string,
