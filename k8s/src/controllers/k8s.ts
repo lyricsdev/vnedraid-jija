@@ -13,7 +13,7 @@ const router = express.Router();
 function getClusterTypeFromString(value: string): ClusterType | null {
   const mapping: Record<string, ClusterType> = {
     master: ClusterType.master,
-    minion: ClusterType.Minion,
+    minion: ClusterType.minion,
   };
 
   return mapping[value.toLowerCase()] ?? null;
