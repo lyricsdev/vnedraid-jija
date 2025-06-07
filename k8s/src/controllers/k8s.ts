@@ -2,7 +2,7 @@ import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
 import { ensureSSHKeyPair } from "../service/sshInitService";
-import { deployHelloWorld, deployPrometheus, getClusterInfo } from "../service/cluster/k8s";
+import { createNamespaceCluster, deleteNamespace, deployHelloWorld, deployPrometheus, getClusterInfo, getClustetById, getNamespaces } from "../service/cluster/k8s";
 enum ClusterType {
   Master = "master",
   Minion = "minion",
@@ -158,5 +158,73 @@ router.post("/deploy", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/getclusterbyid", async (req: Request, res: Response) => {
+  const { clusterId } = req.body;
+  if(!clusterId) {
+    res.json({
+      code: 404,
+      message: "кластер не найден"
+    })
+    return;
+  }
+  res.json(await getClustetById(clusterId))
+});
 
+router.get("/:id/namespaces", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  const cluster = await prisma.cluster.findFirst({
+      where: { id: Number(id) }
+    });
+
+    if (!cluster) {
+      res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
+      return;
+    }
+  res.json(await getNamespaces(`https://${cluster.ip}:6443`))
+});
+
+router.post("/:id/namespaces", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { namespace } = req.body;
+
+  if (!namespace || typeof namespace !== 'string') {
+    res.status(400).json({ success: false, message: "Требуется поле 'namespace' в теле запроса" });
+    return 
+  }
+
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+  if (!cluster) {
+    res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
+    return 
+  }
+
+  const success = await createNamespaceCluster(`https://${cluster.ip}:6443`, namespace);
+  if (success) {
+    res.json({ success: true, message: `Namespace '${namespace}' создан` });
+    return 
+  } else {
+    res.status(500).json({ success: false, message: "Ошибка при создании namespace" });
+    return 
+  }
+});
+
+router.delete("/:id/namespaces/:namespace", async (req: Request, res: Response) => {
+  const { id, namespace } = req.params;
+
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+  if (!cluster) {
+     res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
+     return 
+  }
+
+  const success = await deleteNamespace(`https://${cluster.ip}:6443`, namespace);
+  if (success) {
+    res.json({ success: true, message: `Namespace '${namespace}' удалён` });
+    return 
+  } else {
+    res.status(500).json({ success: false, message: "Ошибка при удалении namespace" });
+    return 
+  }
+});
 export default router;

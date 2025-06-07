@@ -78,4 +78,3 @@ export const createProject = async (data: IcreateProject) => {
     }
   });
 };
-
