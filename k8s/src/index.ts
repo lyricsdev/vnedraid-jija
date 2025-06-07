@@ -8,8 +8,9 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use('/cluster',k8sRouter)
-app.use('/project',projectRouter)
+app.use('/api/k8s/cluster', k8sRouter)
+app.use('/api/k8s/project', projectRouter)
+
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async() => {
