@@ -133,14 +133,62 @@ export async function deployPrometheus(server: string) {
       metadata: { name: 'kube-state-metrics' },
       rules: [
         {
-          apiGroups: [''],
-          resources: ['pods', 'nodes', 'namespaces'],
-          verbs: ['list', 'watch']
+          apiGroups: [""],
+          resources: [
+            "configmaps",
+            "secrets",
+            "nodes",
+            "pods",
+            "services",
+            "resourcequotas",
+            "replicationcontrollers",
+            "limitranges",
+            "persistentvolumeclaims",
+            "persistentvolumes",
+            "namespaces",
+            "endpoints",
+          ],
+          verbs: ["list", "watch"]
         },
         {
-          apiGroups: ['apps'],
-          resources: ['deployments'],
-          verbs: ['list', 'watch']
+          apiGroups: ["apps"],
+          resources: [
+            "statefulsets",
+            "daemonsets",
+            "deployments",
+            "replicasets",
+          ],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["batch"],
+          resources: ["jobs", "cronjobs"],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["autoscaling"],
+          resources: ["horizontalpodautoscalers"],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["policy"],
+          resources: ["poddisruptionbudgets"],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["certificates.k8s.io"],
+          resources: ["certificatesigningrequests"],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["storage.k8s.io"],
+          resources: ["storageclasses"],
+          verbs: ["list", "watch"]
+        },
+        {
+          apiGroups: ["admissionregistration.k8s.io"],
+          resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"],
+          verbs: ["list", "watch"]
         }
       ]
     }
@@ -577,7 +625,10 @@ export async function createNamespaceCluster(server: string, namespace: string):
     return false;
   }
 }
+export const horizontalScale = (server: string) => {
 
+  return;
+}
 export async function deleteNamespace(server: string, namespace: string): Promise<boolean> {
   try {
     const { coreV1Api } = await createK8sClient(server);

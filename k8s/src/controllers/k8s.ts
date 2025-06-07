@@ -253,7 +253,6 @@ const deployments = await Promise.all((depList.items || []).map(async (dep) => {
   const podsResponse = await coreV1Api.listNamespacedPod({namespace, labelSelector});
   const pods = podsResponse.items;
 
-  // Собираем уникальные лейблы из подов
   const podLabelsSet = new Set<string>();
   pods.forEach(pod => {
     const labels = pod.metadata?.labels || {};
@@ -275,7 +274,7 @@ const deployments = await Promise.all((depList.items || []).map(async (dep) => {
       namespace,
       resourceVersion: dep.metadata?.resourceVersion,
       uid: dep.metadata?.uid,
-      labels: selectorLabels,  // лейблы из селектора деплоймента
+      labels: selectorLabels,
       podLabels: podLabelsObj, // реальные лейблы подов
     }
   };
