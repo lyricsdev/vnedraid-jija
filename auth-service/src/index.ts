@@ -14,7 +14,9 @@ app.use('/api/auth',router);
 app.use('/api/roles',router2);
 
 app.use(cors({
-  origin: "*"
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
