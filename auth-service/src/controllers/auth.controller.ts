@@ -97,6 +97,12 @@ class AuthController{
                 *
             FROM Role where id in (${rolesIds.join(',')}) `;
 
+        const varify = await passwordUtils.verifyPassword(password, user[0].password)
+
+        if(!varify) return res.status(402).send({
+            code: 402,
+            message: "Указанные данные пользователя неверны"
+        })
         
         const returnObject: AuthDataset = {
             id: user[0].id,

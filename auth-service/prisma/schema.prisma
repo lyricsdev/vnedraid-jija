@@ -20,7 +20,6 @@ model User {
 model Role {
   id          String     @id @default(uuid())
   name        String
-  action      String
   users       UserRole[]
   permissions RolePermission[]
 }

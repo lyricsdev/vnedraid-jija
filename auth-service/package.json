@@ -23,6 +23,7 @@
     "@kubernetes/client-node": "^1.2.0",
     "@prisma/client": "^6.8.2",
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.2",
     "@types/fs-extra": "^11.0.4",
     "@types/jsonwebtoken": "^9.0.9",
