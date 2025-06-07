@@ -36,9 +36,8 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/certbot/conf:/etc/letsencrypt  # <-- только этот, убрать остальные с letsencrypt
-      - /usr/lib/nginx/modules:/usr/lib/nginx/modules:ro
-      - /etc/ssl:/etc/ssl:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt
+
     depends_on:
       - app
       - main
