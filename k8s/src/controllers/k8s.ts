@@ -5,15 +5,15 @@ import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { getClusterInfo } from "../service/cluster/k8s";
 enum ClusterType {
-  master,
-  minion
+  Master = "master",
+  Minion = "minion",
 }
 
 const router = express.Router();
-function getClusterTypeFromString(value: string): ClusterType | null {
-  const mapping: Record<string, ClusterType> = {
-    master: ClusterType.master,
-    minion: ClusterType.minion,
+function getClusterTypeFromString(value: string): string | null {
+  const mapping: Record<string, string> = {
+    master: ClusterType.Master,
+    minion: ClusterType.Minion,
   };
 
   return mapping[value.toLowerCase()] ?? null;
@@ -74,7 +74,7 @@ router.post("/new/:type", async (req: Request, res: Response) => {
           },
           ip,
           username: user,
-            type: getClusterTypeFromString(type) ?? ClusterType.master,        
+              type: getClusterTypeFromString(type) ?? "master"
           }
       })
       res.json({ 
