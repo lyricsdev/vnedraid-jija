@@ -14,13 +14,12 @@ model User {
   name       String?         @unique
   password       String
   createdAt  DateTime        @default(now())
-  roles      UserRole[]
+  permissions      UserPermission[]
 }
 
 model Permission {
   id    String          @id @default(uuid())
   name  String
-  roles RolePermission[]
 }
 
 model UserPermission {
