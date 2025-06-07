@@ -8,6 +8,7 @@ const app = express();
 const router = require('./routers/auth/auth.router')
 const router2 = require('./routers/roles/roles.router')
 const userRouter = require('./routers/user/user.router')
+const middlewareAuth = require('./middleware/auth.middleware')
 
 
 app.use(cors({
@@ -19,8 +20,7 @@ app.use(cors({
 
 app.use(cookieParser());
 app.use(express.json());
-const middlewareAuth = require('./middleware/auth.middleware')
-app.use('/api/roles',middlewareAuth, router2);
+app.use('/api/roles', router2);
 app.use('/api/users',middlewareAuth, userRouter);
 app.use('/api/auth', router);
 
