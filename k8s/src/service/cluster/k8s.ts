@@ -102,6 +102,255 @@ export async function createNamespace(coreApi: CoreV1Api, name: string) {
   try {
     await coreApi.createNamespace({ body: ns });
   } catch (e: any) {
-    if (e.body?.reason !== 'AlreadyExists') throw e;
+    // Просто пропускаем, если namespace уже существует
+    if (e?.response?.body?.reason !== 'AlreadyExists') {
+      throw e;
+    }
   }
 }
+
+export async function deployPrometheus(server: string, namespace = 'monitoring') {
+    const { coreV1Api, appsV1Api } = await createK8sClient(server);
+
+    // 1. Создаём namespace
+    await createNamespace(coreV1Api, namespace);
+
+    // 2. ConfigMap с расширенным prometheus.yml
+    const prometheusConfig = {
+        kind: 'ConfigMap',
+        apiVersion: 'v1',
+        metadata: { name: 'prometheus-config', namespace },
+        data: {
+            'prometheus.yml': `
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Собираем метрики самого Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Собираем метрики с kubelet (через API proxy)
+  - job_name: 'kubelet'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/$1/proxy/metrics
+
+  # Все поды с аннотациями
+  - job_name: 'pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\\d+);(\\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+  # Все сервисы с аннотациями
+  - job_name: 'services'
+    kubernetes_sd_configs:
+      - role: service
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\\d+);(\\d+)
+        replacement: $1:$2
+        target_label: __address__
+`
+        }
+    };
+
+    await coreV1Api.createNamespacedConfigMap({
+        namespace,
+        body: prometheusConfig
+    });
+
+    // 3. Deployment Prometheus
+    const prometheusDeployment = {
+        apiVersion: 'apps/v1',
+        kind: 'Deployment',
+        metadata: { name: 'prometheus', namespace },
+        spec: {
+            replicas: 1,
+            selector: {
+                matchLabels: { app: 'prometheus' }
+            },
+            template: {
+                metadata: {
+                    labels: { app: 'prometheus' }
+                },
+                spec: {
+                    containers: [
+                        {
+                            name: 'prometheus',
+                            image: 'prom/prometheus:latest',
+                            args: [
+                                '--config.file=/etc/prometheus/prometheus.yml',
+                                '--storage.tsdb.path=/prometheus'
+                            ],
+                            ports: [{ containerPort: 9090 }],
+                            volumeMounts: [{
+                                name: 'prometheus-config-volume',
+                                mountPath: '/etc/prometheus'
+                            }]
+                        }
+                    ],
+                    volumes: [{
+                        name: 'prometheus-config-volume',
+                        configMap: { name: 'prometheus-config' }
+                    }],
+                    tolerations: [
+                        {
+                            key: "node-role.kubernetes.io/control-plane",
+                            operator: "Exists",
+                            effect: "NoSchedule"
+                        }
+                    ]
+                }
+            }
+        }
+    };
+
+    await appsV1Api.createNamespacedDeployment({
+        namespace,
+        body: prometheusDeployment
+    });
+
+    // 4. Service Prometheus (NodePort — для внешнего доступа)
+    const prometheusService = {
+        kind: 'Service',
+        apiVersion: 'v1',
+        metadata: { name: 'prometheus-service', namespace },
+        spec: {
+            type: 'NodePort',
+            selector: { app: 'prometheus' },
+            ports: [{
+                port: 9090,
+                targetPort: 9090,
+                nodePort: 30090
+            }]
+        }
+    };
+
+    await coreV1Api.createNamespacedService({
+        namespace,
+        body: prometheusService
+    });
+
+    return {
+        url: `http://${server.replace(/^https?:\/\//, '')}:30090`,
+        status: 'Deployed'
+    };
+}
+export async function deployHelloWorld(server: string, namespace = 'hello-world') {
+  const { coreV1Api, appsV1Api } = await createK8sClient(server);
+
+  await createNamespace(coreV1Api, namespace);
+
+  const helloDeployment = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { name: 'hello-deployment', namespace },
+    spec: {
+      replicas: 1,
+      selector: {
+        matchLabels: { app: 'hello' }
+      },
+      template: {
+        metadata: {
+          labels: { app: 'hello' },
+          annotations: {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/path": "/metrics",
+            "prometheus.io/port": "9102"
+          }
+        },
+        spec: {
+          containers: [
+            {
+              name: 'metrics-exporter',
+              image: 'prom/statsd-exporter', // ✅ экспортёр с /metrics
+              ports: [{ containerPort: 9102 }],
+              readinessProbe: {
+                httpGet: {
+                  path: '/metrics',
+                  port: 9102
+                },
+                initialDelaySeconds: 5,
+                periodSeconds: 10
+              }
+            }
+          ],
+          tolerations: [
+            {
+              key: "node-role.kubernetes.io/control-plane",
+              operator: "Exists",
+              effect: "NoSchedule"
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  await appsV1Api.createNamespacedDeployment({ namespace, body: helloDeployment });
+
+  const helloService = {
+    kind: 'Service',
+    apiVersion: 'v1',
+    metadata: {
+      name: 'hello-service',
+      namespace,
+      annotations: {
+        "prometheus.io/scrape": "true",
+        "prometheus.io/path": "/metrics",
+        "prometheus.io/port": "9102"
+      }
+    },
+    spec: {
+      type: 'NodePort',
+      selector: { app: 'hello' },
+      ports: [{
+        port: 80,
+        targetPort: 9102,
+        nodePort: 30080
+      }]
+    }
+  };
+
+  await coreV1Api.createNamespacedService({ namespace, body: helloService });
+
+  return {
+    url: `http://${server.replace(/^https?:\/\//, '')}:30080/metrics`,
+    status: 'Hello World deployed with working Prometheus metrics'
+  };
+}
+

@@ -1,9 +1,8 @@
 import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
-import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
-import { getClusterInfo } from "../service/cluster/k8s";
+import { deployHelloWorld, deployPrometheus, getClusterInfo } from "../service/cluster/k8s";
 enum ClusterType {
   Master = "master",
   Minion = "minion",
@@ -111,4 +110,53 @@ router.get("/clusterInfo/:id", async (req: Request, res: Response) => {
   res.json(clusterInfo);
   return;
 })
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+router.post("/metric/install",  async (req: Request, res: Response) => {
+  const { clusterId } = req.body;
+
+  try {
+    const cluster = await prisma.cluster.findFirst({
+      where: { id: clusterId }
+    });
+
+    if (!cluster) {
+      res.status(404).json({ success: false, error: 404,message: "Кластер не найден" });
+      return;
+    }
+
+    const clusterInfo = await deployPrometheus(`https://${cluster.ip}:6443`)
+
+    res.json({ success: true, ...clusterInfo });
+    return;
+  } catch (e) {
+    console.error("Prometheus deploy error:", e);
+    res.status(500).json({ success: false, error: 504,message:e });
+    return;
+  }
+});
+router.post("/deploy", async (req: Request, res: Response) => {
+  const { clusterId } = req.body;
+
+  try {
+    const cluster = await prisma.cluster.findFirst({
+      where: { id: clusterId }
+    });
+
+    if (!cluster) {
+      res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
+      return;
+    }
+
+    const result = await deployHelloWorld(`https://${cluster.ip}:6443`);
+
+    res.json({ success: true, ...result });
+  } catch (e) {
+    console.error("Hello World deploy error:", e);
+    res.status(500).json({ success: false, error: 500, message: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+
 export default router;

@@ -30,7 +30,7 @@ router.post("/create", async (req: Request, res: Response) => {
     })
     return;
 });
-router.get("/list", async (req: Request, res: Response) => {
+router.post("/list", async (req: Request, res: Response) => {
     const { userId} = req.body;
     const data = await getProjectForUser(userId)
     res.json(data)
