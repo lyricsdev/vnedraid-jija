@@ -1,11 +1,18 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import k8sRouter from './controllers/k8s'
+import projectRouter from './controllers/project'
+import { getClusterInfo } from './service/cluster/k8s';
+
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+app.use('/cluster',k8sRouter)
+app.use('/project',projectRouter)
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async() => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(await getClusterInfo("https://31.207.76.43:6443"))
 });

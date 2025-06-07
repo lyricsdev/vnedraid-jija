@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id         Int             @id @default(autoincrement())
+  userId String @unique
+  username String
+  createdAt  DateTime        @default(now())
+  projects   ProjectUser[]
+}
+
+model Project {
+  id         Int             @id @default(autoincrement())
+  name       String
+  createdAt  DateTime        @default(now())
+  clusters   Cluster[]
+  members    ProjectUser[]
+}
+
+model ProjectUser {
+  id         Int             @id @default(autoincrement())
+  user       User            @relation(fields: [userId], references: [id])
+  userId     Int
+  project    Project         @relation(fields: [projectId], references: [id])
+  projectId  Int
+  createdAt  DateTime        @default(now())
+
+  @@unique([userId, projectId])
+}
+
+model Cluster {
+  id         Int             @id @default(autoincrement())
+  project    Project         @relation(fields: [projectId], references: [id])
+  projectId  Int
+  ip         String
+  username   String
+  type       ClusterType
+  sshKey     SshKey?
+  createdAt  DateTime        @default(now())
+  joinCommand  String?      
+  token        String?
+  caCertHash   String?
+}
+
+model SshKey {
+  id         Int             @id @default(autoincrement())
+  cluster    Cluster         @relation(fields: [clusterId], references: [id])
+  clusterId  Int             @unique
+  privateKey String
+  publicKey  String
+  createdAt  DateTime        @default(now())
+}
+
+enum ClusterType {
+  master
+  minion
+}
