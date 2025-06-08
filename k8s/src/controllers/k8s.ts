@@ -359,9 +359,10 @@ router.get("/:id/metrics", async (req: Request, res: Response) => {
 
   try {
     const result = await fetch(`${prometheusUrl}?query=${encodeURIComponent(String(query))}`);
-    console.log(result.json())
     const data = await result.json();
+    console.log(data)
     res.json(data);
+    return;
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Ошибка при запросе к Prometheus" });
