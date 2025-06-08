@@ -26,7 +26,9 @@ log systemctl enable containerd
 
 ### Установка Kubernetes
 mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
+  gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
 log apt-get update -y
 log apt-get install -y kubelet kubeadm kubectl
@@ -39,7 +41,6 @@ log ufw allow 2379:2380/tcp
 log ufw allow 10250/tcp
 log ufw allow 10251/tcp
 log ufw allow 10252/tcp
-log ufw --force enable
 
 ### Параметры ядра
 log modprobe br_netfilter

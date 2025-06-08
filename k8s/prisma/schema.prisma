@@ -49,7 +49,7 @@ model Cluster {
   sshKey     SshKey?
   createdAt  DateTime        @default(now())
   joinCommand  String?      
-  token        String?
+  token        String? @db.Text
   caCertHash   String?
 }
 

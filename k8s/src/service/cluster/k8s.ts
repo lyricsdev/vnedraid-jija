@@ -2,7 +2,7 @@ import { KubeConfig, AppsV1Api, CoreV1Api, V1PodList, V1Namespace, RbacAuthoriza
 import { prisma } from '../../service/prisma';
 import axios from 'axios';
 const TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ikt6LTNKT0pzRVotRlFFOUtGTXd1OWo1bldVREhnLTlfRzlhZWhUVEFrS2MifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImFkbWluLWFwaS10b2tlbiIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJhZG1pbi1hcGkiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI5ZDBkOGM5ZC1lNGE2LTRlNzgtOWZhMy0yNTVlZWRjYjlkZDAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDphZG1pbi1hcGkifQ.kM-G21FBJ0kG6w_C-p3SPuZk0d6T_J8w5qGsoT7ZJE0_guqdh34PaT0DQ2pp8OMSQpO6uHDQs8JCI4PJU0mCTVfOeAbIH5w05E1Q7-l0Aj37WtB_dWI_TkfRs4iLlapMUF1GR1ZcrohPwz3Or0wvU8vHx4FcQpWWKpQCkqmAN6P3VpMySYxdNM_qyXFsDuwth1mWSeDAwrIDuBrHCkySjj8xmOZbvh8HsvErmaKd4aHCtrVy1TKc38qaPIjGBp60ry2kIBz2lXxc9Ke-ZAamyah5l8AunJdueUzbz1zxhsH-UXh0qUfXp1cHwXfghdIMWWm7FPEsUHWqxcKDdbYbWQ"
-export async function createK8sClient(server: string,token: string = TOKEN) {
+export async function createK8sClient(server: string,token: string) {
     const kc = new KubeConfig();
     
     kc.loadFromOptions({
@@ -40,8 +40,8 @@ interface PodListOptions {
     limit?: number;
 }
 
-export async function getClusterInfo(server: string) {
-    const { coreV1Api, appsV1Api } = await createK8sClient(server);
+export async function getClusterInfo(server: string,token:string) {
+    const { coreV1Api, appsV1Api } = await createK8sClient(server,token);
 
     try {
         const [podsRes, nodesRes, servicesRes, deploymentsRes] = await Promise.all([
@@ -176,8 +176,8 @@ export async function cleanupKubeStateMetricsResources(
 
 
 
-export async function deployPrometheus(server: string) {
-  const { coreV1Api, appsV1Api,rbacAuthorizationV1Api } = await createK8sClient(server);
+export async function deployPrometheus(server: string,token:string) {
+  const { coreV1Api, appsV1Api,rbacAuthorizationV1Api } = await createK8sClient(server,token);
   const namespace = 'monitoring';
         await cleanupKubeStateMetricsResources(namespace, coreV1Api, rbacAuthorizationV1Api);
   await createNamespace(coreV1Api, namespace);
@@ -580,8 +580,8 @@ datasources:
   };
 }
 
-export async function deployHelloWorld(server: string, namespace = 'hello-world') {
-  const { coreV1Api, appsV1Api } = await createK8sClient(server);
+export async function deployHelloWorld(server: string,token:string, namespace = 'hello-world') {
+  const { coreV1Api, appsV1Api } = await createK8sClient(server,token);
 
   await createNamespace(coreV1Api, namespace);
 
@@ -671,8 +671,8 @@ export const getClustetById = async (id: number) => {
   })
 }
 
-export async function getNamespaces(server: string) {
-  const { coreV1Api } = await createK8sClient(server);
+export async function getNamespaces(server: string,token:string) {
+  const { coreV1Api } = await createK8sClient(server,token);
 
   const nsResponse = await coreV1Api.listNamespace();
   const namespaces = nsResponse.items
@@ -720,9 +720,9 @@ export async function getNamespaces(server: string) {
 }
 
 
-export async function createNamespaceCluster(server: string, namespace: string): Promise<boolean> {
+export async function createNamespaceCluster(server: string, namespace: string,token: string): Promise<boolean> {
   try {
-    const { coreV1Api } = await createK8sClient(server);
+    const { coreV1Api } = await createK8sClient(server,token);
   await coreV1Api.createNamespace({ body: { metadata: { name: namespace } } });
 
     return true;
@@ -786,9 +786,9 @@ export const askGpt = async (message: string): Promise<string> => {
     throw new Error(`Failed to get GPT response: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
-export async function deleteNamespace(server: string, namespace: string): Promise<boolean> {
+export async function deleteNamespace(server: string, namespace: string,token: string): Promise<boolean> {
   try {
-    const { coreV1Api } = await createK8sClient(server);
+    const { coreV1Api } = await createK8sClient(server,token);
     await coreV1Api.deleteNamespace({ name: namespace });
     return true;
   } catch (error) {
@@ -798,15 +798,15 @@ export async function deleteNamespace(server: string, namespace: string): Promis
 }
 
 // Получение списка неймспейсов
-export async function getNamespacesDeployments(server: string): Promise<string[]> {
-  const { coreV1Api } = await createK8sClient(server);
+export async function getNamespacesDeployments(server: string,token: string): Promise<string[]> {
+  const { coreV1Api } = await createK8sClient(server,token);
   const res = await coreV1Api.listNamespace();
   return res.items.map(ns => ns.metadata?.name || '').filter(Boolean);
 }
 
 // Получение списка деплоев по namespace
-export async function getDeployments(server: string, namespace: string) {
-  const { appsV1Api } = await createK8sClient(server);
+export async function getDeployments(server: string, namespace: string,token: string) {
+  const { appsV1Api } = await createK8sClient(server,token);
   const res = await appsV1Api.listNamespacedDeployment({ namespace });
   return res.items.map(dep => ({
     name: dep.metadata?.name || '',
@@ -819,10 +819,10 @@ export async function scaleDeployment(
   server: string,
   namespace: string,
   deploymentName: string,
-  replicas: number
+  replicas: number,token: string
 ): Promise<boolean> {
   try {
-    const { appsV1Api } = await createK8sClient(server);
+    const { appsV1Api } = await createK8sClient(server,token);
     const depRes = await appsV1Api.readNamespacedDeployment({ name: deploymentName, namespace });
     const dep = depRes;
 

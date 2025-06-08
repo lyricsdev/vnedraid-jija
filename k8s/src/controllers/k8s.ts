@@ -60,11 +60,11 @@ router.post("/new/:type", async (req: Request, res: Response) => {
 
     await ssh.connect({ host: ip, username: user, password });
     const remotePath = `/tmp/init-${type}.sh`;
-
-    await ssh.putFile(scriptPath, remotePath);
+    console.log(remotePath)
+    await ssh.putFile(scriptPath, remotePath)
     await ssh.execCommand(`chmod +x ${remotePath} && ${remotePath}`).then(async(val)=> {
-      const data =  JSON.parse(val.stdout);
-      console.log(data)
+      console.log(val)
+      const data =JSON.parse(val.stdout);
       await prisma.cluster.create({
         data: {
           project: {
@@ -73,10 +73,13 @@ router.post("/new/:type", async (req: Request, res: Response) => {
             }
           },
           ip,
+          token: data.api_token,
+          joinCommand: data.join_command,
           username: user,
           type: getClusterTypeFromString(type) ?? "master"
           }
       })
+      
       res.json({ 
         status: "ok", 
         message: `Скрипт для ${type} успешно выполнен`,
@@ -107,7 +110,7 @@ router.get("/clusterInfo/:id", async (req: Request, res: Response) => {
       })
       return;
   }
-  const clusterInfo = await getClusterInfo(`https://${data.ip}:6443`)
+  const clusterInfo = await getClusterInfo(`https://${data.ip}:6443`,data.token!!)
   res.json(clusterInfo);
   return;
 })
@@ -127,7 +130,7 @@ router.post("/metric/install",  async (req: Request, res: Response) => {
       return;
     }
 
-    const clusterInfo = await deployPrometheus(`https://${cluster.ip}:6443`)
+    const clusterInfo = await deployPrometheus(`https://${cluster.ip}:6443`,cluster.token!!)
 
     res.json({ success: true, ...clusterInfo });
     return;
@@ -150,7 +153,7 @@ router.post("/deploy", async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await deployHelloWorld(`https://${cluster.ip}:6443`);
+    const result = await deployHelloWorld(`https://${cluster.ip}:6443`,cluster.token!!);
 
     res.json({ success: true, ...result });
   } catch (e) {
@@ -182,7 +185,7 @@ router.get("/:id/namespaces", async (req: Request, res: Response) => {
       res.status(404).json({ success: false, error: 404, message: "Кластер не найден" });
       return;
     }
-  res.json(await getNamespaces(`https://${cluster.ip}:6443`))
+  res.json(await getNamespaces(`https://${cluster.ip}:6443`,cluster.token!!))
 });
 
 router.post("/:id/namespaces", async (req: Request, res: Response) => {
@@ -200,7 +203,7 @@ router.post("/:id/namespaces", async (req: Request, res: Response) => {
     return 
   }
 
-  const success = await createNamespaceCluster(`https://${cluster.ip}:6443`, namespace);
+  const success = await createNamespaceCluster(`https://${cluster.ip}:6443`, namespace,cluster.token!!);
   if (success) {
     res.json({ success: true, message: `Namespace '${namespace}' создан` });
     return 
@@ -219,7 +222,7 @@ router.delete("/:id/namespaces/:namespace", async (req: Request, res: Response) 
      return 
   }
 
-  const success = await deleteNamespace(`https://${cluster.ip}:6443`, namespace);
+  const success = await deleteNamespace(`https://${cluster.ip}:6443`, namespace,cluster.token!!);
   if (success) {
     res.json({ success: true, message: `Namespace '${namespace}' удалён` });
     return 
@@ -238,7 +241,7 @@ router.get("/:id/deployments/:namespace", async (req: Request, res: Response) =>
   }
 
   try {
-    const { coreV1Api,appsV1Api } = await createK8sClient(`https://${cluster.ip}:6443`);
+    const { coreV1Api,appsV1Api } = await createK8sClient(`https://${cluster.ip}:6443`,cluster.token!!);
     const depList = await appsV1Api.listNamespacedDeployment({ namespace });
 
 const deployments = await Promise.all((depList.items || []).map(async (dep) => {
@@ -302,10 +305,10 @@ router.get("/:id/namespaces-with-deployments", async (req: Request, res: Respons
   const server = `https://${cluster.ip}:6443`;
 
   try {
-    const namespaces = await getNamespacesDeployments(server);
+    const namespaces = await getNamespacesDeployments(server,cluster.token!!);
     const result = await Promise.all(
       namespaces.map(async (ns) => {
-        const deployments = await getDeployments(server, ns);
+        const deployments = await getDeployments(server, ns,cluster.token!!);
         return { namespace: ns, deployments };
       })
     );
@@ -332,7 +335,7 @@ router.post("/:id/scale-deployment", async (req: Request, res: Response) => {
   }
 
   const server = `https://${cluster.ip}:6443`;
-  const ok = await scaleDeployment(server, namespace, name, replicas);
+  const ok = await scaleDeployment(server, namespace, name, replicas,cluster.token!!);
   res.json({ success: ok });
 });
 router.get("/:id/metrics", async (req: Request, res: Response) => {
