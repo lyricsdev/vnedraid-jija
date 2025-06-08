@@ -15,18 +15,25 @@ services:
     networks:
       - app-network
   main:
-    build:
-      context: ./k8s
-    ports:
-      - "3001:3000"
-    environment:
-      DATABASE_URL: mysql://root:roottedexample@31.207.74.78:3306/main
-    volumes:
-      - ./k8s:/k8s
-      - /k8s/node_modules
-    command: npm run dev
-    networks:
-      - app-network
+      build:
+        context: ./k8s
+      ports:
+        - "3001:3000"
+      environment:
+        DATABASE_URL: mysql://root:roottedexample@31.207.74.78:3306/main
+      volumes:
+        - ./k8s:/k8s
+        - /k8s/node_modules
+      command: npm run dev
+      networks:
+        - app-network
+      restart: always
+      healthcheck:
+        test: ["CMD", "curl", "-f", "https://hackaton.testagsoft.ru/api/k8s/cluster/12/metrics?query=sum(node_memory_MemTotal_bytes%20-%20node_memory_MemAvailable_bytes)"]
+        interval: 30s        # проверка каждые 30 секунд
+        timeout: 10s         # таймаут на выполнение запроса
+        retries: 3           # 3 неудачных попытки подряд = контейнер считается unhealthy
+        start_period: 20s    # время на старт приложения перед проверками
 
   nginx:
     image: nginx:1.24.0  # Используем вашу версию
