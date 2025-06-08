@@ -64,6 +64,7 @@ router.post("/new/:type", async (req: Request, res: Response) => {
     await ssh.putFile(scriptPath, remotePath);
     await ssh.execCommand(`chmod +x ${remotePath} && ${remotePath}`).then(async(val)=> {
       const data =  JSON.parse(val.stdout);
+      console.log(data)
       await prisma.cluster.create({
         data: {
           project: {
