@@ -1,5 +1,6 @@
 import { KubeConfig, AppsV1Api, CoreV1Api, V1PodList, V1Namespace, RbacAuthorizationV1Api } from '@kubernetes/client-node';
 import { prisma } from '../../service/prisma';
+import axios from 'axios';
 const TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ikt6LTNKT0pzRVotRlFFOUtGTXd1OWo1bldVREhnLTlfRzlhZWhUVEFrS2MifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImFkbWluLWFwaS10b2tlbiIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJhZG1pbi1hcGkiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI5ZDBkOGM5ZC1lNGE2LTRlNzgtOWZhMy0yNTVlZWRjYjlkZDAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDphZG1pbi1hcGkifQ.kM-G21FBJ0kG6w_C-p3SPuZk0d6T_J8w5qGsoT7ZJE0_guqdh34PaT0DQ2pp8OMSQpO6uHDQs8JCI4PJU0mCTVfOeAbIH5w05E1Q7-l0Aj37WtB_dWI_TkfRs4iLlapMUF1GR1ZcrohPwz3Or0wvU8vHx4FcQpWWKpQCkqmAN6P3VpMySYxdNM_qyXFsDuwth1mWSeDAwrIDuBrHCkySjj8xmOZbvh8HsvErmaKd4aHCtrVy1TKc38qaPIjGBp60ry2kIBz2lXxc9Ke-ZAamyah5l8AunJdueUzbz1zxhsH-UXh0qUfXp1cHwXfghdIMWWm7FPEsUHWqxcKDdbYbWQ"
 export async function createK8sClient(server: string,token: string = TOKEN) {
     const kc = new KubeConfig();
@@ -97,26 +98,88 @@ export async function getClusterInfo(server: string) {
         throw err;
     }
 }
-export async function createNamespace(coreApi: CoreV1Api, name: string) {
-  const ns: V1Namespace = {
-    metadata: { name }
-  };
-
+export async function createNamespace(coreV1Api: CoreV1Api, name: string) {
   try {
-    await coreApi.createNamespace({ body: ns });
+    await coreV1Api.createNamespace({
+      body: {
+        metadata: { name },
+      },
+    });
+    console.log(`Namespace "${name}" created`);
   } catch (e: any) {
-    // Просто пропускаем, если namespace уже существует
-    if (e?.response?.body?.reason !== 'AlreadyExists') {
+    if (e?.response?.statusCode === 409) {
+      console.log(`Namespace "${name}" already exists`);
+    } else {
       throw e;
     }
   }
 }
 
-// Обновлённый полный метод с kube-state-metrics, Prometheus, Grafana, Node Exporter
+export async function cleanupKubeStateMetricsResources(
+  namespace: string,
+  coreV1Api: CoreV1Api,
+  rbacAuthorizationV1Api: RbacAuthorizationV1Api
+) {
+  const safeDelete = async (fn: () => Promise<any>, desc: string) => {
+    try {
+      await fn();
+      console.log(`${desc} deleted`);
+    } catch (e: any) {
+      if (e?.body?.code === 404) {
+        console.warn(`${desc} not found or already deleted`);
+      } else {
+        console.error(`Error deleting ${desc}:`, e.body?.message || e.message);
+      }
+    }
+  };
+
+  await safeDelete(
+    () => coreV1Api.deleteNamespacedServiceAccount({ name: 'kube-state-metrics', namespace }),
+    'ServiceAccount kube-state-metrics'
+  );
+
+  await safeDelete(
+    () => coreV1Api.deleteNamespacedServiceAccount({ name: 'monitoring-sa', namespace }),
+    'ServiceAccount monitoring-sa'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRole({ name: 'kube-state-metrics' }),
+    'ClusterRole kube-state-metrics'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRole({ name: 'monitoring-cluster-role' }),
+    'ClusterRole monitoring-cluster-role'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRoleBinding({ name: 'monitoring-cluster-role' }),
+    'ClusterRoleBinding monitoring-cluster-role'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRoleBinding({ name: 'kube-state-metrics' }),
+    'ClusterRoleBinding kube-state-metrics'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRoleBinding({ name: 'default-monitoring-binding' }),
+    'ClusterRoleBinding default-monitoring-binding'
+  );
+
+  await safeDelete(
+    () => rbacAuthorizationV1Api.deleteClusterRoleBinding({ name: 'monitoring-sa-binding' }),
+    'ClusterRoleBinding monitoring-sa-binding'
+  );
+}
+
+
+
 export async function deployPrometheus(server: string) {
   const { coreV1Api, appsV1Api,rbacAuthorizationV1Api } = await createK8sClient(server);
   const namespace = 'monitoring';
-
+        await cleanupKubeStateMetricsResources(namespace, coreV1Api, rbacAuthorizationV1Api);
   await createNamespace(coreV1Api, namespace);
 
   // === ServiceAccount for kube-state-metrics ===
@@ -128,76 +191,122 @@ export async function deployPrometheus(server: string) {
       metadata: { name: 'kube-state-metrics' }
     }
   });
- await rbacAuthorizationV1Api.createClusterRole({
-    body: {
-      metadata: { name: 'kube-state-metrics' },
-      rules: [
-        {
-          apiGroups: [""],
-          resources: [
-            "configmaps",
-            "secrets",
-            "nodes",
-            "pods",
-            "services",
-            "resourcequotas",
-            "replicationcontrollers",
-            "limitranges",
-            "persistentvolumeclaims",
-            "persistentvolumes",
-            "namespaces",
-            "endpoints",
-          ],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["apps"],
-          resources: [
-            "statefulsets",
-            "daemonsets",
-            "deployments",
-            "replicasets",
-          ],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["batch"],
-          resources: ["jobs", "cronjobs"],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["autoscaling"],
-          resources: ["horizontalpodautoscalers"],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["policy"],
-          resources: ["poddisruptionbudgets"],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["certificates.k8s.io"],
-          resources: ["certificatesigningrequests"],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["storage.k8s.io"],
-          resources: ["storageclasses"],
-          verbs: ["list", "watch"]
-        },
-        {
-          apiGroups: ["admissionregistration.k8s.io"],
-          resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"],
-          verbs: ["list", "watch"]
-        }
-      ]
-    }
-  });
+  await coreV1Api.createNamespacedServiceAccount({
+  namespace,
+  body: {
+    apiVersion: 'v1',
+    kind: 'ServiceAccount',
+    metadata: { name: 'monitoring-sa' }
+  }
+});
+await rbacAuthorizationV1Api.createClusterRole({
+  body: {
+    metadata: { name: 'monitoring-cluster-role' },
+    rules: [
+      {
+        apiGroups: [''],
+        resources: ['pods', 'nodes', 'services', 'endpoints'],
+        verbs: ['get', 'list', 'watch']
+      }
+    ]
+  }
+});
+await rbacAuthorizationV1Api.createClusterRoleBinding({
+  body: {
+    metadata: { name: 'default-monitoring-binding' },
+    roleRef: {
+      kind: 'ClusterRole',
+      name: 'monitoring-cluster-role',
+      apiGroup: 'rbac.authorization.k8s.io',
+    },
+    subjects: [{
+      kind: 'ServiceAccount',
+      name: 'default',
+      namespace: 'monitoring',
+    }],
+  }
+});
+
+await rbacAuthorizationV1Api.createClusterRoleBinding({
+  body: {
+    metadata: { name: 'monitoring-sa-binding' },
+    roleRef: {
+      kind: 'ClusterRole',
+      name: 'monitoring-cluster-role',
+      apiGroup: 'rbac.authorization.k8s.io'
+    },
+    subjects: [{
+      kind: 'ServiceAccount',
+      name: 'monitoring-sa',
+      namespace
+    }]
+  }
+});
+
+await rbacAuthorizationV1Api.createClusterRole({
+  body: {
+    metadata: { name: 'kube-state-metrics' },
+    rules: [
+      {
+        apiGroups: [""],
+        resources: [
+          "configmaps", "secrets", "nodes", "pods", "services",
+          "resourcequotas", "replicationcontrollers", "limitranges",
+          "persistentvolumeclaims", "persistentvolumes", "namespaces", "endpoints"
+        ],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["apps"],
+        resources: [
+          "statefulsets", "daemonsets", "deployments", "replicasets"
+        ],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["batch"],
+        resources: ["jobs", "cronjobs"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["autoscaling"],
+        resources: ["horizontalpodautoscalers"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["policy"],
+        resources: ["poddisruptionbudgets"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["certificates.k8s.io"],
+        resources: ["certificatesigningrequests"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["storage.k8s.io"],
+        resources: ["storageclasses"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["admissionregistration.k8s.io"],
+        resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"],
+        verbs: ["list", "watch"]
+      },
+      {
+        apiGroups: ["rbac.authorization.k8s.io"],
+        resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"],
+        verbs: ["list", "watch"]
+      }
+    ]
+  }
+});
+
 
   await rbacAuthorizationV1Api.createClusterRoleBinding({
     body: {
       metadata: { name: 'kube-state-metrics' },
-      roleRef: { kind: 'ClusterRole', name: 'kube-state-metrics', apiGroup: 'rbac.authorization.k8s.io' },
+      roleRef: { kind: 'ClusterRole', name: 'kube-state-metrics', apiGroup: 'rbac.authorization.k8s.io', },
       subjects: [{ kind: 'ServiceAccount', name: 'kube-state-metrics', namespace }]
     }
   });
@@ -223,9 +332,18 @@ scrape_configs:
     static_configs:
       - targets: ['node-exporter-service.monitoring.svc.cluster.local:9100']
 
-  - job_name: 'kube-state-metrics'
+  - job_name: 'kube-state-metrics-static'
     static_configs:
       - targets: ['kube-state-metrics.monitoring.svc.cluster.local:8080']
+
+  - job_name: 'kube-state-metrics'
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_namespace]
+        action: keep
+        regex: kube-state-metrics;monitoring
+
 `
     }
   };
@@ -235,6 +353,7 @@ scrape_configs:
   const prometheusDeployment = {
     apiVersion: 'apps/v1',
     kind: 'Deployment',
+    serviceAccountName: 'monitoring-sa',
     metadata: { name: 'prometheus', namespace },
     spec: {
       replicas: 1,
@@ -285,6 +404,7 @@ scrape_configs:
     kind: 'Deployment',
     metadata: { name: 'node-exporter', namespace },
     spec: {
+      serviceAccountName: 'monitoring-sa',
       replicas: 1,
       selector: { matchLabels: { app: 'node-exporter' } },
       template: {
@@ -333,8 +453,13 @@ const kubeStateMetricsDeployment = {
             {
               name: 'kube-state-metrics',
               image: 'quay.io/coreos/kube-state-metrics:latest',
-              args: ['--resources=pods,nodes,deployments'],
-              ports: [{ containerPort: 8080 }]
+              ports: [
+                {
+                  containerPort: 8080,
+                  name: 'http-metrics', // обязательно ИМЯ
+                  protocol: 'TCP'       // явно укажем протокол
+                }
+              ]
             }
           ],
           tolerations: [{
@@ -354,7 +479,7 @@ const kubeStateMetricsDeployment = {
     metadata: { name: 'kube-state-metrics', namespace },
     spec: {
       selector: { app: 'kube-state-metrics' },
-      ports: [{ port: 8080, targetPort: 8080 }]
+      ports: [{ port: 8080, targetPort: 'http-metrics' }]
     }
   };
   await coreV1Api.createNamespacedService({ namespace, body: kubeStateMetricsService });
@@ -393,6 +518,7 @@ datasources:
       template: {
         metadata: { labels: { app: 'grafana' } },
         spec: {
+          serviceAccountName: 'monitoring-sa',
           containers: [{
             name: 'grafana',
             image: 'grafana/grafana',
@@ -592,27 +718,7 @@ export async function getNamespaces(server: string) {
 
   return result;
 }
-export async function scaleDeployment(server: string, namespace: string, deploymentName: string, replicas: number): Promise<boolean> {
-  try {
-    const { appsV1Api } = await createK8sClient(server);
 
-    const dep = await appsV1Api.readNamespacedDeployment({ name: deploymentName, namespace });
-
-    if (dep.spec) {
-      dep.spec.replicas = replicas;
-    }
-
-    await appsV1Api.replaceNamespacedDeployment({
-      name: deploymentName,
-      namespace,
-      body: dep,
-    });
-
-    return true; // Успех
-  } catch (error) {
-    return false; // Ошибка
-  }
-}
 
 export async function createNamespaceCluster(server: string, namespace: string): Promise<boolean> {
   try {
@@ -625,10 +731,61 @@ export async function createNamespaceCluster(server: string, namespace: string):
     return false;
   }
 }
-export const horizontalScale = (server: string) => {
-
-  return;
+export interface GptResponse {
+  model: string;
+  created_at: string;
+  response: string;
+  done: boolean;
 }
+
+export const askGpt = async (message: string): Promise<string> => {
+  const prompt = `Ты - Senior DevOps Engineer с 10+ лет опыта. Анализируй проблемы строго по следующим критериям:
+
+      1. Диагностика:
+        - Какие метрики нужно проверить (CPU, Memory, Disk, Network)
+        - Какие логи изучить в первую очередь
+        - Как воспроизвести проблему
+
+      2. Решение:
+        - Конкретные команды для диагностики
+        - Пошаговый план устранения
+        - Рекомендации по мониторингу
+
+      3. Профилактика:
+        - Какие изменения внести в инфраструктуру
+        - Какие алерты настроить
+        - Как избежать повторения
+
+      Формат ответа - только технические рекомендации без вводных фраз.
+      Текст всегда на русском
+      Проблема: {описание проблемы}
+      Вопрос: ${message}`;
+
+  try {
+    const response = await axios.post(
+      'http://46.173.27.40:11434/api/generate',
+      {
+        model: "tinyllama",
+        prompt: prompt,
+        stream: false
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 100000
+      }
+    );
+
+    if (response.data?.response) {
+      return response.data.response;
+    }
+    throw new Error('Invalid response format');
+  } catch (error) {
+    console.error('GPT request failed:', error);
+    throw new Error(`Failed to get GPT response: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
 export async function deleteNamespace(server: string, namespace: string): Promise<boolean> {
   try {
     const { coreV1Api } = await createK8sClient(server);
@@ -640,3 +797,57 @@ export async function deleteNamespace(server: string, namespace: string): Promis
   }
 }
 
+// Получение списка неймспейсов
+export async function getNamespacesDeployments(server: string): Promise<string[]> {
+  const { coreV1Api } = await createK8sClient(server);
+  const res = await coreV1Api.listNamespace();
+  return res.items.map(ns => ns.metadata?.name || '').filter(Boolean);
+}
+
+// Получение списка деплоев по namespace
+export async function getDeployments(server: string, namespace: string) {
+  const { appsV1Api } = await createK8sClient(server);
+  const res = await appsV1Api.listNamespacedDeployment({ namespace });
+  return res.items.map(dep => ({
+    name: dep.metadata?.name || '',
+    replicas: dep.spec?.replicas || 0,
+    availableReplicas: dep.status?.availableReplicas || 0
+  }));
+}
+
+export async function scaleDeployment(
+  server: string,
+  namespace: string,
+  deploymentName: string,
+  replicas: number
+): Promise<boolean> {
+  try {
+    const { appsV1Api } = await createK8sClient(server);
+    const depRes = await appsV1Api.readNamespacedDeployment({ name: deploymentName, namespace });
+    const dep = depRes;
+
+    if (!dep.spec) throw new Error('Deployment spec not found');
+
+    dep.spec.replicas = replicas;
+    await appsV1Api.replaceNamespacedDeployment({ name: deploymentName, namespace, body: dep });
+
+    return true;
+  } catch (error) {
+    console.error(`Error scaling deployment: ${error}`);
+    return false;
+  }
+}
+
+// === Примеры PromQL запросов ===
+export const promQLQueries = {
+  // CPU и память
+  cpuUsage: `sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod, namespace)`,
+  memoryUsage: `sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod, namespace)`,
+
+  // Requests / Limits
+  cpuRequests: `sum(kube_pod_container_resource_requests_cpu_cores) by (pod, namespace)`,
+  memoryRequests: `sum(kube_pod_container_resource_requests_memory_bytes) by (pod, namespace)`,
+
+  cpuLimits: `sum(kube_pod_container_resource_limits_cpu_cores) by (pod, namespace)`,
+  memoryLimits: `sum(kube_pod_container_resource_limits_memory_bytes) by (pod, namespace)`
+};

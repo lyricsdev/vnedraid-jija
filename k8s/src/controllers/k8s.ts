@@ -2,7 +2,7 @@ import express, { response, type Request, type Response } from "express";
 import path from "path";
 import { NodeSSH } from "node-ssh";
 import { ensureSSHKeyPair } from "../service/sshInitService";
-import { createK8sClient, createNamespaceCluster, deleteNamespace, deployHelloWorld, deployPrometheus, getClusterInfo, getClustetById, getNamespaces } from "../service/cluster/k8s";
+import { createK8sClient, createNamespaceCluster, deleteNamespace, deployHelloWorld, deployPrometheus, getClusterInfo, getClustetById, getDeployments, getNamespaces, getNamespacesDeployments, scaleDeployment } from "../service/cluster/k8s";
 enum ClusterType {
   Master = "master",
   Minion = "minion",
@@ -287,6 +287,77 @@ const deployments = await Promise.all((depList.items || []).map(async (dep) => {
     console.error('Error listing deployments:', error);
     res.status(500).json({ success: false, message: "Ошибка при получении деплойментов" });
     return 
+  }
+});
+router.get("/:id/namespaces-with-deployments", async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+  if (!cluster) {
+    res.status(404).json({ success: false, message: "Кластер не найден" });
+    return;
+  }
+
+  const server = `https://${cluster.ip}:6443`;
+
+  try {
+    const namespaces = await getNamespacesDeployments(server);
+    const result = await Promise.all(
+      namespaces.map(async (ns) => {
+        const deployments = await getDeployments(server, ns);
+        return { namespace: ns, deployments };
+      })
+    );
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Ошибка при получении данных" });
+  }
+});
+router.post("/:id/scale-deployment", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { namespace, name, replicas } = req.body;
+
+  if (!namespace || !name || typeof replicas !== "number") {
+    res.status(400).json({ success: false, message: "Поля namespace, name, replicas обязательны" });
+    return;
+  }
+
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+  if (!cluster) {
+    res.status(404).json({ success: false, message: "Кластер не найден" });
+    return;
+  }
+
+  const server = `https://${cluster.ip}:6443`;
+  const ok = await scaleDeployment(server, namespace, name, replicas);
+  res.json({ success: ok });
+});
+router.get("/:id/metrics", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const cluster = await prisma.cluster.findFirst({ where: { id: Number(id) } });
+
+  if (!cluster) {
+    res.status(404).json({ success: false, message: "Кластер не найден" });
+    return;
+  }
+
+  const prometheusUrl = `http://${cluster.ip}:30090/api/v1/query`; // Порт Prometheus
+  const query = req.query.query;
+
+  if (!query) {
+    res.status(400).json({ success: false, message: "Параметр 'query' обязателен" });
+    return;
+  }
+
+  try {
+    const result = await fetch(`${prometheusUrl}?query=${encodeURIComponent(String(query))}`);
+    const data = await result.json();
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Ошибка при запросе к Prometheus" });
   }
 });
 

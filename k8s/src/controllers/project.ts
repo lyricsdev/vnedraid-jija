@@ -5,6 +5,7 @@ import fs from "fs-extra";
 import { prisma } from "../service/prisma";
 import { ensureSSHKeyPair } from "../service/sshInitService";
 import { createProject, getClusterProjects, getProjectForUser } from "../service/projects/project.service";
+import { askGpt } from "../service/cluster/k8s";
 
 const router = express.Router();
 
@@ -39,6 +40,12 @@ router.post("/list", async (req: Request, res: Response) => {
 router.post("/clusterlist", async (req: Request, res: Response) => {
     const {projectId} = req.body;
     const data = await getClusterProjects(projectId)
+    res.json(data)
+    return;
+});
+router.post("/askGpt", async (req: Request, res: Response) => {
+    const {message} = req.body;
+    const data = await askGpt(message)
     res.json(data)
     return;
 });
