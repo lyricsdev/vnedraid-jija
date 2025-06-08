@@ -352,7 +352,6 @@ router.get("/:id/metrics", async (req: Request, res: Response) => {
 
   const prometheusUrl = `http://${cluster.ip}:30090/api/v1/query`; // Порт Prometheus
   const query = req.query.query;
-
   if (!query) {
     res.status(400).json({ success: false, message: "Параметр 'query' обязателен" });
     return;
@@ -360,6 +359,7 @@ router.get("/:id/metrics", async (req: Request, res: Response) => {
 
   try {
     const result = await fetch(`${prometheusUrl}?query=${encodeURIComponent(String(query))}`);
+    console.log(result.json())
     const data = await result.json();
     res.json(data);
   } catch (err) {
