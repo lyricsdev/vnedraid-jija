@@ -21,7 +21,7 @@ function getClusterTypeFromString(value: string): string | null {
 router.post("/new/:type", async (req: Request, res: Response) => {
   const { ip, user, password,projectId } = req.body;
   const { type } = req.params;
-  console.log(req.body)
+
   if (type !== "master" && type !== "minion") {
     res
       .status(400)
@@ -51,9 +51,10 @@ router.post("/new/:type", async (req: Request, res: Response) => {
     res.status(400).send({ error: "Проект не найден" });
     return;
   }
-  const ssh = new NodeSSH();
+  
+  try { 
+    const ssh = new NodeSSH();
 
-  try {
     await ensureSSHKeyPair();
 
     const scriptPath = path.resolve(__dirname, `../../scripts/init-${type}.sh`);
@@ -85,6 +86,7 @@ router.post("/new/:type", async (req: Request, res: Response) => {
         message: `Скрипт для ${type} успешно выполнен`,
         resp: JSON.parse(val.stdout)
       });
+      return;
     }).catch((e)=>{console.log("bruh:" + e)}).finally(()=> {
       ssh.dispose()
     });
@@ -93,6 +95,7 @@ router.post("/new/:type", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Ошибка SSH:", err);
     res.status(500).json({ error: "Ошибка при настройке узла", details: err });
+    return;
   }
 });
 router.get("/clusterInfo/:id", async (req: Request, res: Response) => {
